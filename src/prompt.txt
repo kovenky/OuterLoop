@@ -1,0 +1,11 @@
+Write a Python function that satisfies this spec.
+
+Spec:
+{spec}
+
+It must pass these tests:
+```python
+{tests}
+```{history}
+
+Return only the function code. No prose, no markdown fences.
