@@ -13,13 +13,15 @@ spec + tests ──▶ ask_agent ──▶ run_tests ──┬─ pass ─▶ re
                     └──── failures fed back ─┘ (retry)
 ```
 
-| File           | Responsibility                                                      |
-| -------------- | ------------------------------------------------------------------- |
-| `prompt.txt`   | The prompt template (data, not code)                                |
-| `providers.py` | LLM provider adapters (OpenRouter, OpenAI, Anthropic)               |
-| `helpers.py`   | Prompt building, the agent call (`ask_agent`), and `run_tests`      |
-| `loop.py`      | The orchestration loop                                              |
-| `run.py`       | An example: generate a `parse_log_line` function from a spec + tests |
+The code lives in the `src/` package:
+
+| File               | Responsibility                                                      |
+| ------------------ | ------------------------------------------------------------------- |
+| `src/prompt.txt`   | The prompt template (data, not code)                                |
+| `src/providers.py` | LLM provider adapters (OpenRouter, OpenAI, Anthropic)               |
+| `src/helpers.py`   | Prompt building, the agent call (`ask_agent`), and `run_tests`      |
+| `src/loop.py`      | The orchestration loop                                              |
+| `src/run.py`       | An example: generate a `parse_log_line` function from a spec + tests |
 
 ## Requirements
 
@@ -69,11 +71,16 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ## Running the exercise
 
-With the venv activated and the key set:
+With the venv activated and the key set, run from the **project root** as a module:
 
 ```bash
-python run.py
+python -m src.run
 ```
+
+> Run it from the repo root, not from inside `src/`. The example uses absolute
+> imports (`from src.loop import loop`), so `src` must be importable as a package
+> — which it is from the root, but not from within `src/`. (`python src/run.py`
+> won't work for the same reason.)
 
 You should see output like:
 
@@ -88,10 +95,10 @@ passes within `max_iters` (default 5), `status` will be `failed`.
 
 ## Using it on your own task
 
-Import `loop` and pass your own spec and tests:
+Import `loop` and pass your own spec and tests (run from the project root):
 
 ```python
-from loop import loop
+from src.loop import loop
 
 spec = "Implement `add(a, b)` that returns the sum of two numbers."
 
