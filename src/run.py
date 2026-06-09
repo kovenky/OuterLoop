@@ -27,9 +27,14 @@ def test_malformed_raises():
         parse_log_line("not a log line")
 """
 
-result = loop(spec, tests)
+def main():
+    result = loop(spec, tests)
 
-print(f"status: {result['status']}, iterations: {result['iterations']}")
+    print(f"status: {result['status']}, iterations: {result['iterations']}")
 
-if result["status"] == "success":
-    print(result["code"])
+    if result["status"] == "success":
+        print(result["code"])
+
+
+if __name__ == "__main__":
+    main()

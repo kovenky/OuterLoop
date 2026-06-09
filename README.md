@@ -13,15 +13,19 @@ spec + tests ──▶ ask_agent ──▶ run_tests ──┬─ pass ─▶ re
                     └──── failures fed back ─┘ (retry)
 ```
 
+Every LLM call and every iteration is appended to a JSON Lines log so a run can
+be inspected after the fact (see [Observability](#observability)).
+
 The code lives in the `src/` package:
 
-| File               | Responsibility                                                      |
-| ------------------ | ------------------------------------------------------------------- |
-| `src/prompt.txt`   | The prompt template (data, not code)                                |
-| `src/providers.py` | LLM provider adapters (OpenRouter, OpenAI, Anthropic)               |
-| `src/helpers.py`   | Prompt building, the agent call (`ask_agent`), and `run_tests`      |
-| `src/loop.py`      | The orchestration loop                                              |
-| `src/run.py`       | An example: generate a `parse_log_line` function from a spec + tests |
+| File                   | Responsibility                                                      |
+| ---------------------- | ------------------------------------------------------------------- |
+| `src/prompt.txt`       | The prompt template (data, not code)                                |
+| `src/providers.py`     | LLM provider adapters (OpenRouter, OpenAI, Anthropic)               |
+| `src/helpers.py`       | Prompt building, the agent call (`ask_agent`), `run_tests`, fence stripping |
+| `src/loop.py`          | The orchestration loop                                              |
+| `src/observability.py` | JSONL event logging (`log_event`, `new_run_id`)                     |
+| `src/run.py`           | An example: generate a `parse_log_line` function from a spec + tests |
 
 ## Requirements
 
@@ -71,16 +75,21 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ## Running the exercise
 
-With the venv activated and the key set, run from the **project root** as a module:
+`uv sync` installs the project, which registers an `outerloop` console command.
+With your API key set, run any of these from the **project root**:
 
 ```bash
-python -m src.run
+make run          # convenience wrapper
+uv run outerloop  # without activating the venv
+outerloop         # with the venv activated
 ```
 
-> Run it from the repo root, not from inside `src/`. The example uses absolute
-> imports (`from src.loop import loop`), so `src` must be importable as a package
-> — which it is from the root, but not from within `src/`. (`python src/run.py`
-> won't work for the same reason.)
+The [Makefile](Makefile) also provides `make install` (= `uv sync`),
+`make test` (= `uv run pytest`), and `make clean`.
+
+> Running as a module (`python -m src.run`) still works, but `python src/run.py`
+> does not — the example uses absolute imports (`from src.loop import loop`), so
+> `src` must be importable as a package, which only happens from the repo root.
 
 You should see output like:
 
@@ -113,6 +122,29 @@ if result["status"] == "success":
     print(result["code"])
 ```
 
+## Observability
+
+Each run appends structured records — one JSON object per line — to
+`src/loop-logs.jsonl` (git-ignored). All records from a single `loop()` call
+share a `run_id` so you can correlate the LLM calls with the iterations they
+produced. Tail it live with `tail -f src/loop-logs.jsonl`.
+
+| `event`     | Key fields                                                              |
+| ----------- | ---------------------------------------------------------------------- |
+| `run_start` | `run_id`, `max_iters`, `spec`                                          |
+| `llm_call`  | `iteration`, `provider`, `model`, `latency_ms`, `prompt`, `response`, `fence_stripped`, `raw_response`, `ok` |
+| `iteration` | `iteration`, `passed`, `code`, `output`                               |
+| `run_end`   | `status`, `iterations`                                                |
+
+> **Note:** records include the full prompt and response (no truncation), so the
+> log captures whatever you send the model. It's append-only and grows with every
+> run; delete it freely. Override the path with `LOOP_LOG_PATH`.
+
+`raw_response` and `fence_stripped` exist because models often wrap code in
+markdown fences despite being told not to. `ask_agent` strips a surrounding
+fence before the code is run (otherwise pytest sees ```` ```python ```` and dies
+with a `SyntaxError`); `fence_stripped` flags when that happened.
+
 ## Configuration
 
 All via environment variables (no code edits needed):
@@ -121,6 +153,7 @@ All via environment variables (no code edits needed):
 | --------------- | -------------------------------- | -------------------------------- |
 | `LLM_PROVIDER`  | `openrouter` / `openai` / `anthropic` | `openrouter`                |
 | `LLM_MODEL`     | Model id for the chosen provider | per-provider (see below)         |
+| `LOOP_LOG_PATH` | Where the JSONL log is written   | `src/loop-logs.jsonl`            |
 
 Default models: `anthropic/claude-sonnet-4.5` (openrouter), `gpt-4o` (openai),
 `claude-sonnet-4-6` (anthropic). Override with `LLM_MODEL`, e.g.:

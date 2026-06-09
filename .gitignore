@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OuterLoop observability logs
+src/loop-logs.jsonl
